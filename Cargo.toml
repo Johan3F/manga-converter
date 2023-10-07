@@ -7,5 +7,5 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.75"
-printpdf = "0.6.0"
+printpdf = { version = "0.6.0", features = ["embedded_images"] }
 zip = "0.6.6"
