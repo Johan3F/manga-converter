@@ -1,3 +1,5 @@
+mod constants;
+mod image;
 mod names;
 mod pdf_creation;
 

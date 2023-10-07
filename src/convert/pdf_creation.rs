@@ -4,17 +4,16 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use super::constants::{DOUBLE_MANGA_WIDTH, DPI, MANGA_HEIGHT, MANGA_WIDTH};
+
+use super::image::ImageWrapper;
 use anyhow::{bail, Result};
-use printpdf::{image_crate, Image, ImageTransform, Mm, PdfDocument, PdfDocumentReference};
+use printpdf::{
+    image_crate, Image, ImageTransform, Mm, PdfDocument, PdfDocumentReference, PdfLayerIndex,
+    PdfPageIndex,
+};
 
-const MANGA_WIDTH: f32 = 127.0;
-const DOUBLE_MANGA_WIDTH: f32 = 127.0 * 2.0;
-const MANGA_HEIGHT: f32 = 190.5;
-
-const DPI: f32 = 300.0;
-
-const MM_PER_INCH: f32 = 25.4;
-const MM_PER_DPI: f32 = MM_PER_INCH / DPI;
+const MAX_IMAGES_PER_PAGE: u32 = 2;
 
 pub fn create_pdf_file(file_path: &Path, images: Vec<PathBuf>) -> Result<()> {
     if file_path.file_stem().is_none() {
@@ -27,20 +26,25 @@ pub fn create_pdf_file(file_path: &Path, images: Vec<PathBuf>) -> Result<()> {
         bail!("unable to get the original file name")
     }
 
-    let (doc, _, _) = PdfDocument::new(
+    let (doc, initial_page, initial_layout) = PdfDocument::new(
         file_name.unwrap(),
         Mm(DOUBLE_MANGA_WIDTH),
         Mm(MANGA_HEIGHT),
         "",
     );
-    populate_file(&doc, images)?;
+    populate_file(&doc, initial_page, initial_layout, images)?;
 
     doc.save(&mut BufWriter::new(File::create(file_path).unwrap()))?;
 
     Ok(())
 }
 
-fn populate_file(doc: &PdfDocumentReference, images: Vec<PathBuf>) -> Result<()> {
+fn populate_file(
+    doc: &PdfDocumentReference,
+    mut current_page: PdfPageIndex,
+    mut current_layout: PdfLayerIndex,
+    images: Vec<PathBuf>,
+) -> Result<()> {
     let mut index = 0;
 
     for image_path in images {
@@ -52,13 +56,13 @@ fn populate_file(doc: &PdfDocumentReference, images: Vec<PathBuf>) -> Result<()>
         }
         let image = image.unwrap();
 
-        let scale_factor = get_correct_scale_factor(&image)?;
+        let scale_factor = image.get_scale_factor()?;
 
-        let (page_index, layer_index) = doc.add_page(Mm(DOUBLE_MANGA_WIDTH), Mm(MANGA_HEIGHT), "");
-        let current_layer = doc.get_page(page_index).get_layer(layer_index);
+        (current_page, current_layout) = doc.add_page(Mm(DOUBLE_MANGA_WIDTH), Mm(MANGA_HEIGHT), "");
+        let current_layer = doc.get_page(current_page).get_layer(current_layout);
 
         let transform = ImageTransform {
-            translate_x: None,
+            translate_x: Some(Mm(MANGA_WIDTH)),
             translate_y: None,
             rotate: None,
             scale_x: Some(scale_factor),
@@ -66,10 +70,12 @@ fn populate_file(doc: &PdfDocumentReference, images: Vec<PathBuf>) -> Result<()>
             dpi: Some(DPI),
         };
 
-        image.add_to_layer(current_layer.clone(), transform);
+        image
+            .inner_image
+            .add_to_layer(current_layer.clone(), transform);
 
         index += 1;
-        if index > 10 {
+        if index > 3 {
             break;
         }
     }
@@ -77,7 +83,7 @@ fn populate_file(doc: &PdfDocumentReference, images: Vec<PathBuf>) -> Result<()>
     Ok(())
 }
 
-fn get_image(image_path: &PathBuf) -> Result<Option<Image>> {
+fn get_image(image_path: &PathBuf) -> Result<Option<ImageWrapper>> {
     if image_path.extension().is_none() || image_path.extension().unwrap().to_str().is_none() {
         return Ok(None);
     }
@@ -86,54 +92,14 @@ fn get_image(image_path: &PathBuf) -> Result<Option<Image>> {
 
     let image_file = File::open(image_path).unwrap();
     let image = match image_extension {
-        "png" => Some(Image::try_from(image_crate::codecs::png::PngDecoder::new(
-            image_file,
-        )?)?),
-        "jpg" => Some(Image::try_from(
+        "png" => Some(ImageWrapper::new(Image::try_from(
+            image_crate::codecs::png::PngDecoder::new(image_file)?,
+        )?)),
+        "jpg" => Some(ImageWrapper::new(Image::try_from(
             image_crate::codecs::jpeg::JpegDecoder::new(image_file)?,
-        )?),
+        )?)),
         _ => None,
     };
 
     Ok(image)
-}
-
-fn get_correct_scale_factor(image: &Image) -> Result<f32> {
-    let mut is_double = false;
-    let width_in_mm = image.image.width.0 as f32 * MM_PER_DPI;
-    let height_in_mm = image.image.height.0 as f32 * MM_PER_DPI;
-
-    let width_scale_factor = match height_in_mm > width_in_mm {
-        true => MANGA_WIDTH / width_in_mm,
-        false => {
-            is_double = true;
-            DOUBLE_MANGA_WIDTH / width_in_mm
-        }
-    };
-
-    let mut scale_factor = width_scale_factor;
-    if !is_in_manga_bounds_after_scale(width_in_mm, height_in_mm, width_scale_factor, is_double) {
-        scale_factor = MANGA_HEIGHT / height_in_mm;
-    }
-
-    return Ok(scale_factor);
-}
-
-fn is_in_manga_bounds_after_scale(
-    width: f32,
-    height: f32,
-    scale_factor: f32,
-    is_double: bool,
-) -> bool {
-    let leeway = 0.5;
-
-    let manga_width = match is_double {
-        true => DOUBLE_MANGA_WIDTH,
-        false => MANGA_WIDTH,
-    };
-
-    let scaled_width = width * scale_factor;
-    let scaled_height = height * scale_factor;
-
-    (scaled_width - leeway) < manga_width && (scaled_height - leeway) < MANGA_HEIGHT
 }
