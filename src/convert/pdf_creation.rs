@@ -45,8 +45,6 @@ fn populate_file(
     mut current_layout: PdfLayerIndex,
     images: Vec<PathBuf>,
 ) -> Result<()> {
-    let mut index = 0;
-
     let mut available_images_slot = MAX_IMAGES_PER_PAGE;
 
     for image_path in images {
@@ -83,11 +81,6 @@ fn populate_file(
         image
             .inner_image
             .add_to_layer(current_layer.clone(), transform);
-
-        index += 1;
-        if index > 10 {
-            break;
-        }
     }
 
     Ok(())
