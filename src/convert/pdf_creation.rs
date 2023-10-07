@@ -47,6 +47,8 @@ fn populate_file(
 ) -> Result<()> {
     let mut index = 0;
 
+    let mut available_images_slot = MAX_IMAGES_PER_PAGE;
+
     for image_path in images {
         println!("Processing {:?}", image_path);
         let image = get_image(&image_path)?;
@@ -58,11 +60,19 @@ fn populate_file(
 
         let scale_factor = image.get_scale_factor()?;
 
-        (current_page, current_layout) = doc.add_page(Mm(DOUBLE_MANGA_WIDTH), Mm(MANGA_HEIGHT), "");
+        if available_images_slot == 0 || image.is_landscape() {
+            (current_page, current_layout) =
+                doc.add_page(Mm(DOUBLE_MANGA_WIDTH), Mm(MANGA_HEIGHT), "");
+            available_images_slot = MAX_IMAGES_PER_PAGE;
+        }
+        available_images_slot = match image.is_landscape() {
+            true => available_images_slot - 2,
+            false => available_images_slot - 1,
+        };
         let current_layer = doc.get_page(current_page).get_layer(current_layout);
 
         let transform = ImageTransform {
-            translate_x: Some(Mm(MANGA_WIDTH)),
+            translate_x: Some(Mm(available_images_slot as f32 * MANGA_WIDTH)),
             translate_y: None,
             rotate: None,
             scale_x: Some(scale_factor),
@@ -75,7 +85,7 @@ fn populate_file(
             .add_to_layer(current_layer.clone(), transform);
 
         index += 1;
-        if index > 3 {
+        if index > 10 {
             break;
         }
     }
