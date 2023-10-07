@@ -1,17 +1,21 @@
-use std::{fs::read_dir, path::Path};
+mod names;
+mod pdf_creation;
 
-use anyhow::{anyhow, Result};
+use std::path::{Path, PathBuf};
 
-pub fn convert_to_pdf(operation_folder: &Path, destination_folder: &Path) -> Result<()> {
-    let images = get_images_in_folder(operation_folder)?;
+use anyhow::Result;
+
+pub fn convert_to_pdf(
+    original_file_path: &Path,
+    destination_folder: &Path,
+    images: Vec<PathBuf>,
+) -> Result<()> {
+    let destination_file_path =
+        names::get_output_file_name(original_file_path, destination_folder)?;
+
+    println!("storing resulting file in {:?}", destination_file_path);
+
+    pdf_creation::create_pdf_file(&destination_file_path, images)?;
+
     Ok(())
-}
-
-fn get_images_in_folder(operation_folder: &Path) -> Result<Vec<&Path>> {
-    let paths = read_dir(operation_folder)?;
-
-    for path in paths {
-        println!("found file: {:?}", path);
-    }
-    Ok(vec![])
 }
