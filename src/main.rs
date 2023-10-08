@@ -11,10 +11,10 @@ use anyhow::{bail, Result};
 
 fn main() {
     let file_paths = vec![
-        // Path::new("local/Gintama, v01 [2004] [Viz] [senfgurke2].cbz"),
+        Path::new("local/Gintama, v01 [2004] [Viz] [senfgurke2].cbz"),
         Path::new("local/Gintama, v02 [2004] [Viz] [senfgurke2].cbz"),
-        // Path::new("local/Gintama, v03 [2004] [Viz] [senfgurke2].cbz"),
-        // Path::new("local/Gintama, v04 [2004] [Viz] [senfgurke2].cbz"),
+        Path::new("local/Gintama, v03 [2004] [Viz] [senfgurke2].cbz"),
+        Path::new("local/Gintama, v04 [2004] [Viz] [senfgurke2].cbz"),
     ];
     let operation_folder = Path::new("local/extracted");
     let destination_folder = Path::new("local/converted");
