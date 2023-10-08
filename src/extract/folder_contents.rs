@@ -1,10 +1,10 @@
 use std::{
-    fs::{read_dir, DirEntry},
+    fs::{read_dir, DirEntry, File},
     io::Error,
-    path::Path,
+    path::{Path, PathBuf},
 };
 
-use crate::models::FolderEntry;
+use crate::models::{FolderEntry, ImageWrapper};
 
 use anyhow::Result;
 
@@ -24,7 +24,9 @@ pub fn get_images_in_folder(operation_folder: &Path) -> Result<FolderEntry> {
             continue;
         }
 
-        images.append(&mut vec![FolderEntry::SingleEntry(path)]);
+        println!("adding image: {:?}", path);
+        let wrapped_image = ImageWrapper::new(&path)?;
+        images.append(&mut vec![FolderEntry::SingleEntry(wrapped_image)]);
     }
 
     Ok(FolderEntry::Folder(images))

@@ -3,8 +3,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use super::{document::Document, image::ImageWrapper};
-use crate::models::FolderEntry;
+use super::document::Document;
+use crate::models::{FolderEntry, ImageWrapper};
 
 use anyhow::{bail, Result};
 use printpdf::{image_crate, Image};
@@ -75,28 +75,7 @@ fn process_entry(document: &Document, entry: &FolderEntry) -> Result<()> {
     // Ok(())
 }
 
-fn get_image(image_path: &PathBuf) -> Result<Option<ImageWrapper>> {
-    if image_path.extension().is_none() || image_path.extension().unwrap().to_str().is_none() {
-        return Ok(None);
-    }
-
-    let image_extension = image_path.extension().unwrap().to_str().unwrap();
-
-    let image_file = File::open(image_path).unwrap();
-    let image = match image_extension {
-        "png" => Some(ImageWrapper::new(Image::try_from(
-            image_crate::codecs::png::PngDecoder::new(image_file)?,
-        )?)),
-        "jpg" => Some(ImageWrapper::new(Image::try_from(
-            image_crate::codecs::jpeg::JpegDecoder::new(image_file)?,
-        )?)),
-        _ => None,
-    };
-
-    Ok(image)
-}
-
-fn process_single_file_entry(document: &Document, image: &PathBuf) -> Result<()> {
+fn process_single_file_entry(document: &Document, image: &ImageWrapper) -> Result<()> {
     println!("process_single_file_entry");
     Ok(())
 }

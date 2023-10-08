@@ -1,6 +1,4 @@
-mod constants;
 mod document;
-mod image;
 mod names;
 mod pdf_creation;
 

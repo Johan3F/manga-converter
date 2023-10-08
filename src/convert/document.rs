@@ -3,7 +3,7 @@ use std::{fs::File, io::BufWriter, path::Path};
 use anyhow::Result;
 use printpdf::{Mm, PdfDocument, PdfDocumentReference, PdfLayerIndex, PdfPageIndex};
 
-use super::constants::{DOUBLE_MANGA_WIDTH, MANGA_HEIGHT};
+use crate::models::{DOUBLE_MANGA_WIDTH, MANGA_HEIGHT};
 
 pub struct Document {
     file: PdfDocumentReference,

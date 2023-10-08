@@ -1,7 +1,9 @@
-use super::constants::{DOUBLE_MANGA_WIDTH, DPI, MANGA_HEIGHT, MANGA_WIDTH};
+use std::{fs::File, io::BufReader, path::Path};
 
-use anyhow::Result;
-use printpdf::Image;
+use crate::models::{DOUBLE_MANGA_WIDTH, DPI, MANGA_HEIGHT, MANGA_WIDTH};
+
+use anyhow::{bail, Result};
+use printpdf::{image_crate, Image};
 
 const MM_PER_INCH: f32 = 25.4;
 const MM_PER_DPI: f32 = MM_PER_INCH / DPI;
@@ -15,12 +17,13 @@ pub struct ImageWrapper {
 }
 
 impl ImageWrapper {
-    pub fn new(image: Image) -> ImageWrapper {
-        return ImageWrapper {
+    pub fn new(image: &Path) -> Result<ImageWrapper> {
+        let image = ImageWrapper::get_image(image)?;
+        Ok(ImageWrapper {
             width_in_mm: image.image.width.0 as f32 * MM_PER_DPI,
             height_in_mm: image.image.height.0 as f32 * MM_PER_DPI,
             inner_image: image,
-        };
+        })
     }
 
     pub fn get_scale_factor(&self) -> Result<f32> {
@@ -51,5 +54,24 @@ impl ImageWrapper {
         let corrected_heigth = (self.height_in_mm * scale_factor) - COMPARISSON_LEEWAY;
 
         corrected_width < manga_width && corrected_heigth < MANGA_HEIGHT
+    }
+
+    fn get_image(image_path: &Path) -> Result<Image> {
+        if image_path.extension().is_none() || image_path.extension().unwrap().to_str().is_none() {
+            bail!("file image extension is not found or recognized");
+        }
+
+        let image_extension = image_path.extension().unwrap().to_str().unwrap();
+
+        let image_file = File::open(image_path).unwrap();
+        let image_buffer = BufReader::new(image_file);
+
+        let image = match image_extension {
+            "png" => Image::try_from(image_crate::codecs::png::PngDecoder::new(image_buffer)?)?,
+            "jpg" => Image::try_from(image_crate::codecs::jpeg::JpegDecoder::new(image_buffer)?)?,
+            _ => bail!("image type not supported"),
+        };
+
+        Ok(image)
     }
 }

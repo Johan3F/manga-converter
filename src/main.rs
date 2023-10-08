@@ -19,7 +19,10 @@ fn main() {
     let operation_folder = Path::new("local/extracted");
     let destination_folder = Path::new("local/converted");
 
+    println!("Using temp folder {:?}", operation_folder);
     for file_path in file_paths {
+        println!("Processing: {:?}", file_path);
+
         ensure_destination_and_operation_exist(destination_folder, operation_folder)
             .expect("unable to ensure the destination and operation folders");
 

@@ -6,9 +6,6 @@ use zip::ZipArchive;
 pub fn uncompress_file(file_path: &Path, destination_folder: &Path) -> Result<()> {
     verify_file(file_path)?;
 
-    println!("file_path: {:?}", file_path);
-    println!("folder_path: {:?}", destination_folder);
-
     let file = File::open(file_path)?;
 
     let mut archive = ZipArchive::new(file).unwrap();
