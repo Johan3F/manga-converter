@@ -1,44 +1,40 @@
-use std::{
-    fs::File,
-    io::BufWriter,
-    path::{Path, PathBuf},
-};
+use std::{collections::VecDeque, fs::File, io::BufWriter, path::Path};
 
 use anyhow::{bail, Result};
-use printpdf::{Mm, PdfDocument, PdfDocumentReference, PdfLayerIndex, PdfPageIndex};
+use printpdf::{
+    ImageTransform, Mm, PdfDocument, PdfDocumentReference, PdfLayerIndex, PdfPageIndex,
+};
 
-use crate::models::{ImageWrapper, DOUBLE_MANGA_WIDTH, DPI, MANGA_HEIGHT};
+use crate::models::{ImageWrapper, DPI, MANGA_HEIGHT};
 
 const MAX_SLOTS_PER_PAGE: usize = 2;
 
 struct Page(Vec<ImageWrapper>);
 
 pub struct Document {
-    output_file: PathBuf,
-    pages: Vec<Page>,
+    pages: VecDeque<Page>,
 }
 
 impl Document {
-    pub fn new(title: PathBuf) -> Document {
+    pub fn new() -> Document {
         Document {
-            output_file: title,
-            pages: vec![],
+            pages: VecDeque::new(),
         }
     }
 
-    pub fn save(self, file_path: &Path) -> Result<()> {
-        for page in self.pages {
-            println!("{}", page.0.len());
+    pub fn save(mut self, file_path: &Path) -> Result<()> {
+        let first_page = self.pages.pop_front();
+        if first_page.is_none() {
+            return Ok(());
         }
+        let first_page = first_page.unwrap();
 
-        // let (doc, initial_page, initial_layout) = PdfDocument::new(
-        //     get_pdf_title_from_file_path(self.output_file)?,
-        //     Mm(DOUBLE_MANGA_WIDTH),
-        //     Mm(MANGA_HEIGHT),
-        //     "",
-        // );
+        let doc = create_doc_and_add_first_page(file_path, first_page)?;
 
-        // doc.save(&mut BufWriter::new(File::create(file_path).unwrap()))?;
+        for page in self.pages {
+            add_page(&doc, page)?;
+        }
+        doc.save(&mut BufWriter::new(File::create(file_path).unwrap()))?;
         Ok(())
     }
 
@@ -53,23 +49,26 @@ impl Document {
     }
 
     fn push_double_image(&mut self, image: ImageWrapper) -> Result<()> {
-        self.pages
-            .append(&mut vec![Page(vec![image]), Page(vec![])]);
+        self.pages.push_back(Page(vec![image]));
+        self.pages.push_back(Page(vec![]));
 
         Ok(())
     }
 
     fn push_single_image(&mut self, image: ImageWrapper) -> Result<()> {
-        let last_added_page = self.pages.last_mut();
+        let last_added_page = self.pages.back_mut();
+        if last_added_page.is_none() {
+            self.pages.push_back(Page(vec![image]));
+            return Ok(());
+        }
+        let last_added_page = last_added_page.unwrap();
 
-        match last_added_page {
-            None => self.pages.push(Page(vec![image])),
-            Some(last_added_page) => match last_added_page.0.len() {
-                0 => last_added_page.0.push(image),
-                1 => last_added_page.0.push(image),
-                _ => self.pages.push(Page(vec![image])),
-            },
-        };
+        if last_added_page.0.len() >= MAX_SLOTS_PER_PAGE {
+            self.pages.push_back(Page(vec![image]));
+            return Ok(());
+        }
+
+        last_added_page.0.push(image);
 
         Ok(())
     }
@@ -78,16 +77,70 @@ impl Document {
 fn create_doc_and_add_first_page(
     file_path: &Path,
     first_page: Page,
-) -> Result<(PdfDocumentReference, PdfPageIndex, PdfLayerIndex)> {
-    bail!("not implemented")
+) -> Result<PdfDocumentReference> {
+    let width_in_mm = calculate_width_in_page(&first_page);
+
+    let (doc, page_index, layout_index) = PdfDocument::new(
+        get_pdf_title_from_file_path(file_path)?,
+        width_in_mm,
+        Mm(MANGA_HEIGHT),
+        "",
+    );
+
+    add_images_to_page(first_page, &doc, &page_index, &layout_index);
+
+    Ok(doc)
 }
 
-fn calculate_width(images: Vec<ImageWrapper>) -> Result<Mm> {
-    // get the total width
-    bail!("not implemented")
+fn add_page(doc: &PdfDocumentReference, page: Page) -> Result<()> {
+    let width_in_mm = calculate_width_in_page(&page);
+
+    let (current_page, current_layout) = doc.add_page(width_in_mm, Mm(MANGA_HEIGHT), "");
+
+    add_images_to_page(page, &doc, &current_page, &current_layout);
+    Ok(())
 }
 
-fn get_pdf_title_from_file_path(path: PathBuf) -> Result<String> {
+fn add_images_to_page(
+    page: Page,
+    doc: &PdfDocumentReference,
+    page_index: &PdfPageIndex,
+    layout_index: &PdfLayerIndex,
+) {
+    let current_layer = doc
+        .get_page(page_index.to_owned())
+        .get_layer(layout_index.to_owned());
+
+    let total_width_in_mm = calculate_width_in_page(&page);
+    let mut width_accumulative_offset = 0.0;
+    for image in page.0 {
+        let transform = ImageTransform {
+            translate_x: Some(Mm(total_width_in_mm.0
+                - image.get_scaled_width_in_mm()
+                - width_accumulative_offset)),
+            translate_y: None,
+            rotate: None,
+            scale_x: Some(image.scale_factor_to_manga_heigth),
+            scale_y: Some(image.scale_factor_to_manga_heigth),
+            dpi: Some(DPI),
+        };
+
+        width_accumulative_offset += image.get_scaled_width_in_mm();
+
+        image
+            .inner_image
+            .add_to_layer(current_layer.clone(), transform);
+    }
+}
+
+fn calculate_width_in_page(page: &Page) -> Mm {
+    Mm(page
+        .0
+        .iter()
+        .fold(0.0, |acc, image| acc + image.get_scaled_width_in_mm()))
+}
+
+fn get_pdf_title_from_file_path(path: &Path) -> Result<String> {
     if path.file_stem().is_none() {
         bail!("the file_path doesn't reference a file: {:?}", path)
     }
@@ -100,43 +153,3 @@ fn get_pdf_title_from_file_path(path: PathBuf) -> Result<String> {
 
     Ok(file_name.unwrap().to_owned())
 }
-
-// let mut available_images_slot = MAX_IMAGES_PER_PAGE;
-
-// for image_path in images {
-//     println!("Processing {:?}", image_path);
-//     let image = get_image(&image_path)?;
-//     if image.is_none() {
-//         println!("skipping image: {:?} -> Format not supported", image_path);
-//         continue;
-//     }
-//     let image = image.unwrap();
-
-//     let scale_factor = image.get_scale_factor()?;
-
-//     if available_images_slot == 0 || image.is_landscape() {
-//         (current_page, current_layout) =
-//             doc.add_page(Mm(DOUBLE_MANGA_WIDTH), Mm(MANGA_HEIGHT), "");
-//         available_images_slot = MAX_IMAGES_PER_PAGE;
-//     }
-//     available_images_slot = match image.is_landscape() {
-//         true => available_images_slot - 2,
-//         false => available_images_slot - 1,
-//     };
-//     let current_layer = doc.get_page(current_page).get_layer(current_layout);
-
-//     let transform = ImageTransform {
-//         translate_x: Some(Mm(available_images_slot as f32 * MANGA_WIDTH)),
-//         translate_y: None,
-//         rotate: None,
-//         scale_x: Some(scale_factor),
-//         scale_y: Some(scale_factor),
-//         dpi: Some(DPI),
-//     };
-
-//     image
-//         .inner_image
-//         .add_to_layer(current_layer.clone(), transform);
-// }
-
-// Ok(())

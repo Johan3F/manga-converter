@@ -6,7 +6,7 @@ use crate::models::{FolderEntry, ImageWrapper};
 use anyhow::Result;
 
 pub fn create_pdf_file(file_path: &Path, images: FolderEntry) -> Result<()> {
-    let mut document = Document::new(file_path.to_path_buf());
+    let mut document = Document::new();
 
     process_entry(&mut document, images)?;
 
@@ -23,14 +23,11 @@ fn process_entry(mut document: &mut Document, entry: FolderEntry) -> Result<()> 
 }
 
 fn process_single_file_entry(document: &mut Document, image: ImageWrapper) -> Result<()> {
-    println!("process_single_file_entry");
     document.push_image(image)?;
-
     Ok(())
 }
 
 fn process_folder_entry(document: &mut Document, entries: Vec<FolderEntry>) -> Result<()> {
-    println!("process_folder_entry");
     for entry in entries {
         process_entry(document, entry)?;
     }
