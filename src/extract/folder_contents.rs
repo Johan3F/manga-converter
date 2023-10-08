@@ -1,13 +1,15 @@
 use std::{
     fs::{read_dir, DirEntry},
     io::Error,
-    path::{Path, PathBuf},
+    path::Path,
 };
+
+use crate::models::FolderEntry;
 
 use anyhow::Result;
 
-pub fn get_images_in_folder(operation_folder: &Path) -> Result<Vec<PathBuf>> {
-    let mut images = Vec::<PathBuf>::new();
+pub fn get_images_in_folder(operation_folder: &Path) -> Result<FolderEntry> {
+    let mut images = Vec::<FolderEntry>::new();
 
     let raw_paths: Vec<Result<DirEntry, Error>> = read_dir(operation_folder)?.map(|r| r).collect();
     let mut paths: Vec<DirEntry> = raw_paths.into_iter().collect::<Result<Vec<_>, _>>()?;
@@ -17,15 +19,13 @@ pub fn get_images_in_folder(operation_folder: &Path) -> Result<Vec<PathBuf>> {
         let path = path.path();
 
         if path.is_dir() {
-            let mut folder_images = get_images_in_folder(&path)?;
-            folder_images.sort();
-            images.append(&mut folder_images);
+            let folder_images = get_images_in_folder(&path)?;
+            images.append(&mut vec![folder_images]);
             continue;
         }
 
-        let mut new_image = vec![path];
-        images.append(&mut new_image);
+        images.append(&mut vec![FolderEntry::SingleEntry(path)]);
     }
 
-    Ok(images)
+    Ok(FolderEntry::Folder(images))
 }
