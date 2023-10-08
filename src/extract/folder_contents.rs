@@ -1,7 +1,7 @@
 use std::{
-    fs::{read_dir, DirEntry, File},
+    fs::{read_dir, DirEntry},
     io::Error,
-    path::{Path, PathBuf},
+    path::Path,
 };
 
 use crate::models::{FolderEntry, ImageWrapper};
@@ -14,6 +14,8 @@ pub fn get_images_in_folder(operation_folder: &Path) -> Result<FolderEntry> {
     let raw_paths: Vec<Result<DirEntry, Error>> = read_dir(operation_folder)?.map(|r| r).collect();
     let mut paths: Vec<DirEntry> = raw_paths.into_iter().collect::<Result<Vec<_>, _>>()?;
     paths.sort_by_key(|element| element.path());
+
+    paths.truncate(5);
 
     for path in paths {
         let path = path.path();
