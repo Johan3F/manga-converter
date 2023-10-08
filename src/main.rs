@@ -1,4 +1,4 @@
-// mod convert;
+mod convert;
 mod extract;
 mod models;
 
@@ -26,10 +26,8 @@ fn main() {
         let images = extract::extract(file_path, operation_folder)
             .expect("unable to extract images from file");
 
-        println!("images: {:?}", images);
-
-        // convert::convert_to_pdf(file_path, destination_folder, images)
-        //     .expect("unable to convert to pdf");
+        convert::convert_to_pdf(file_path, destination_folder, images)
+            .expect("unable to convert to pdf");
     }
 }
 

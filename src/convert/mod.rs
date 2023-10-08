@@ -1,16 +1,19 @@
 mod constants;
+mod document;
 mod image;
 mod names;
 mod pdf_creation;
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
+
+use crate::models::FolderEntry;
 
 use anyhow::Result;
 
 pub fn convert_to_pdf(
     original_file_path: &Path,
     destination_folder: &Path,
-    images: Vec<PathBuf>,
+    images: FolderEntry,
 ) -> Result<()> {
     let destination_file_path =
         names::get_output_file_name(original_file_path, destination_folder)?;
