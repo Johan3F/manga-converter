@@ -8,4 +8,5 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.75"
 printpdf = { version = "0.6.0", features = ["embedded_images"] }
+tempfile = "3.8.0"
 zip = "0.6.6"

@@ -2,10 +2,7 @@ mod convert;
 mod extract;
 mod models;
 
-use std::{
-    fs::{create_dir_all, remove_dir_all},
-    path::Path,
-};
+use std::{fs::create_dir_all, path::Path};
 
 use anyhow::{bail, Result};
 
@@ -16,44 +13,33 @@ fn main() {
         Path::new("local/Gintama, v03 [2004] [Viz] [senfgurke2].cbz"),
         Path::new("local/Gintama, v04 [2004] [Viz] [senfgurke2].cbz"),
     ];
-    let operation_folder = Path::new("local/extracted");
     let destination_folder = Path::new("local/converted");
+    ensure_destination(destination_folder)
+        .expect("unable to ensure that the destination folder exists");
 
-    println!("Using temp folder {:?}", operation_folder);
     for file_path in file_paths {
-        println!("Processing: {:?}", file_path);
-
-        ensure_destination_and_operation_exist(destination_folder, operation_folder)
-            .expect("unable to ensure the destination and operation folders");
-
-        let images = extract::extract(file_path, operation_folder)
-            .expect("unable to extract images from file");
-
-        convert::convert_to_pdf(file_path, destination_folder, images)
-            .expect("unable to convert to pdf");
+        process(file_path, destination_folder).expect("unable to process file");
     }
 }
 
-fn ensure_destination_and_operation_exist(
-    destination_folder: &Path,
-    operation_folder: &Path,
-) -> Result<()> {
-    let ensure_folder_exist = |folder: &Path| -> Result<()> {
-        if !folder.exists() {
-            create_dir_all(folder)?;
-        }
+fn process(file_path: &Path, destination_folder: &Path) -> Result<()> {
+    println!("Processing: {:?}", file_path);
+    let operation_folder = tempfile::tempdir()?;
 
-        if !folder.is_dir() {
-            bail!("the destination folder is not a folder");
-        }
+    let images = extract::extract(file_path, operation_folder.path())?;
+    convert::convert_to_pdf(file_path, destination_folder, images)?;
 
-        Ok(())
-    };
+    Ok(())
+}
 
-    ensure_folder_exist(destination_folder)?;
-    ensure_folder_exist(operation_folder)?;
+fn ensure_destination(destination_folder: &Path) -> Result<()> {
+    if !destination_folder.exists() {
+        create_dir_all(destination_folder)?;
+    }
 
-    remove_dir_all(operation_folder)?;
+    if !destination_folder.is_dir() {
+        bail!("the destination folder is not a folder");
+    }
 
     Ok(())
 }
