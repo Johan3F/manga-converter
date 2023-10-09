@@ -2,24 +2,42 @@ mod convert;
 mod extract;
 mod models;
 
-use std::{fs::create_dir_all, path::Path};
+use std::{
+    env,
+    fs::create_dir_all,
+    path::{Path, PathBuf},
+};
 
 use anyhow::{bail, Result};
+use clap::Parser;
+
+#[derive(Parser, Debug)]
+#[command(name = "manga converter")]
+#[command(version = "0.5")]
+#[command(about = "Converts .pbz files into a manga pdf", long_about = None)]
+struct Cli {
+    #[arg(short('d') , long , default_value = get_default_destination().into_os_string())]
+    destination: PathBuf,
+
+    #[arg(short('f'), long)]
+    file: PathBuf,
+}
+
+fn get_default_destination() -> PathBuf {
+    let mut path = env::current_exe().unwrap();
+    path.pop();
+    path.push("output");
+    path
+}
 
 fn main() {
-    let file_paths = vec![
-        Path::new("local/Gintama, v01 [2004] [Viz] [senfgurke2].cbz"),
-        Path::new("local/Gintama, v02 [2004] [Viz] [senfgurke2].cbz"),
-        Path::new("local/Gintama, v03 [2004] [Viz] [senfgurke2].cbz"),
-        Path::new("local/Gintama, v04 [2004] [Viz] [senfgurke2].cbz"),
-    ];
+    let args = Cli::parse();
+
     let destination_folder = Path::new("local/converted");
     ensure_destination(destination_folder)
         .expect("unable to ensure that the destination folder exists");
 
-    for file_path in file_paths {
-        process(file_path, destination_folder).expect("unable to process file");
-    }
+    process(&args.file, destination_folder).expect("unable to process file");
 }
 
 fn process(file_path: &Path, destination_folder: &Path) -> Result<()> {
