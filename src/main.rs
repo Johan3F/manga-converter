@@ -3,7 +3,7 @@ mod extract;
 mod models;
 
 use std::{
-    env,
+    env::current_dir,
     fs::create_dir_all,
     path::{Path, PathBuf},
 };
@@ -24,8 +24,7 @@ struct Cli {
 }
 
 fn get_default_destination() -> PathBuf {
-    let mut path = env::current_exe().unwrap();
-    path.pop();
+    let mut path = current_dir().unwrap();
     path.push("output");
     path
 }
@@ -33,11 +32,10 @@ fn get_default_destination() -> PathBuf {
 fn main() {
     let args = Cli::parse();
 
-    let destination_folder = Path::new("local/converted");
-    ensure_destination(destination_folder)
+    ensure_destination(&args.destination)
         .expect("unable to ensure that the destination folder exists");
 
-    process(&args.file, destination_folder).expect("unable to process file");
+    process(&args.file, &args.destination).expect("unable to process file");
 }
 
 fn process(file_path: &Path, destination_folder: &Path) -> Result<()> {
